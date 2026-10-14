@@ -1,166 +1,128 @@
+
+# -*- coding: utf-8 -*-
 """
-RMEP vs NFW: Определения моделей тёмной материи.
+rmep_model.py — ядро RMEP: Регуляторная модель энергии пустоты.
 
-Модели:
-  NFW  — классический профиль Наварро-Френка-Уайта (2 параметра: V200, rs)
-  RMEP — Регуляторная модель энергии пустоты (2 формальных параметра: alpha, A)
-         Фактически однопараметрическая: A определяется через alpha.
+Содержит:
+  * RMEPProfile — профиль регуляторного поля (кривые вращения)
+  * NFWProfile  — классический профиль NFW для сравнения
+  * fit_galaxy  — подгонка профиля к кривой вращения (chi2-минимизация)
+  * hubble_rmep, hubble_lcdm — H(z) для RMEP и LambdaCDM
+  * w_eff_rmep  — эффективное уравнение состояния RMEP
 
-Автор: [заполнить]
-Лицензия: MIT
+Все величины: r в кпк, v в км/с, H0 в км/с/Мпк.
 """
 
 import numpy as np
-from scipy.optimize import curve_fit
+from scipy.optimize import least_squares
 
-# ============================================================
-# Константы
-# ============================================================
-G = 4.30091e-6  # (km/s)^2 * kpc / M_sun — гравитационная постоянная
+G_KPC = 4.30091e-6   # гравитационная постоянная: кпк * (км/с)^2 / Msun
 
-# ============================================================
-# Модель NFW
-# ============================================================
 
-def nfw_density(r, V200, rs):
-    """Профиль плотности NFW.
-    
-    Параметры:
-        r   — радиус (kpc)
-        V200 — круговая скорость на радиусе r200 (km/s)
-        rs   — масштабный радиус (kpc)
-    
-    Возвращает плотность (M_sun / kpc^3).
+# ======================================================================
+#  ПРОФИЛИ ТЁМНОЙ КОМПОНЕНТЫ
+# ======================================================================
+class RMEPProfile:
+    """Регуляторный профиль RMEP.
+
+    Двухпараметрический: A (амплитуда, км/с) и alpha (безразмерный
+    масштаб регуляторного поля в единицах радиуса диска r_d).
+    Вклад в квадрат скорости: v_reg^2 = A^2 * x / (1 + x)^2,
+    где x = r / (alpha * r_d). Форма воспроизводит типовое
+    поведение кривых вращения реальных галактик.
     """
-    M200 = V200**3 / (10 * G)
-    r200 = V200 / 100.0  # приближение (H = 100 km/s/Mpc)
-    c = r200 / rs
-    x = r / rs
-    rho0 = M200 / (4 * np.pi * rs**3 * (np.log(1 + c) - c / (1 + c)))
-    return rho0 / (x * (1 + x)**2)
+    name = "RMEP"
+    param_names = ("A", "alpha")
+
+    def v2(self, r, A, alpha, r_d):
+        r_c = np.maximum(alpha * r_d, 1e-3)
+        x = np.maximum(r / r_c, 1e-6)
+        return A ** 2 * x / (1.0 + x) ** 2
+
+    def v(self, r, A, alpha, r_d):
+        return np.sqrt(np.maximum(self.v2(r, A, alpha, r_d), 0.0))
+
+    def start(self, v_scale):
+        return np.array([np.log10(max(v_scale, 10.0)), np.log10(0.3)])
 
 
-def nfw_mass(r, V200, rs):
-    """Масса внутри радиуса r для профиля NFW (M_sun)."""
-    x = r / rs
-    rho0 = V200**3 / (10 * G) / (4 * np.pi * rs**3)
-    # Нормировка
-    r200 = V200 / 100.0
-    c = r200 / rs
-    rho0 /= (np.log(1 + c) - c / (1 + c))
-    return 4 * np.pi * rho0 * rs**3 * (np.log(1 + x) - x / (1 + x))
+class NFWProfile:
+    """Классический профиль Наварро–Френка–Уайта (для сравнения).
 
-
-def nfw_velocity(r, V200, rs):
-    """Круговая скорость для профиля NFW (km/s)."""
-    x = np.asarray(r) / rs
-    mass = nfw_mass(np.asarray(r), V200, rs)
-    return np.sqrt(G * mass / np.maximum(r, 1e-10))
-
-
-# ============================================================
-# Модель RMEP
-# ============================================================
-
-def rmep_density(r, alpha, A):
-    """Профиль плотности RMEP.
-    
-    Параметры:
-        r     — радиус (kpc)
-        alpha — масштаб регуляции (kpc)
-        A     — нормировка (M_sun / kpc^3)
-    
-    Возвращает плотность (M_sun / kpc^3).
+    Параметры: A = масштаб скорости (км/с), alpha = концентрация c
+    (масштаб r_s = r_d / alpha). Вклад: v_nfw^2 = A^2 * f(x)/x,
+    x = r/r_s, f(x) = ln(1+x) - x/(1+x).
     """
-    x = np.asarray(r) / alpha
-    return A * np.exp(-x) / (x**2 + 1e-30)
+    name = "NFW"
+    param_names = ("A", "alpha")
+
+    def v2(self, r, A, alpha, r_d):
+        r_s = np.maximum(r_d / np.maximum(alpha, 1e-3), 1e-3)
+        x = np.maximum(r / r_s, 1e-6)
+        f = np.log(1.0 + x) - x / (1.0 + x)
+        return A ** 2 * f / x
+
+    def v(self, r, A, alpha, r_d):
+        return np.sqrt(np.maximum(self.v2(r, A, alpha, r_d), 0.0))
+
+    def start(self, v_scale):
+        return np.array([np.log10(max(v_scale, 10.0)), np.log10(0.8)])
 
 
-def rmep_mass(r, alpha, A):
-    """Масса внутри радиуса r для профиля RMEP (M_sun).
-    
-    Численное интегрирование: M(r) = 4*pi * integral(rho * r'^2 dr').
+# ======================================================================
+#  ПОДГОНКА ПО ОДНОЙ ГАЛАКТИКЕ
+# ======================================================================
+def fit_galaxy(r, v_obs, v_err, v_disk, profile):
+    """Подгонка профиля к кривой вращения одной галактики.
+
+    Модель: v_model^2 = v_disk^2 + v_dark^2 (учёт барионной компоненты).
+    Возвращает dict: chi2 и params {A, alpha}.
     """
-    r_arr = np.atleast_1d(np.asarray(r, dtype=float))
-    masses = []
-    for ri in r_arr:
-        if ri <= 0:
-            masses.append(0.0)
-            continue
-        # Численное интегрирование
-        n = max(1000, int(ri * 100))
-        rr = np.linspace(1e-6, ri, n)
-        rho = rmep_density(rr, alpha, A)
-        integrand = rho * rr**2
-        masses.append(4 * np.pi * np.trapz(integrand, rr))
-    return np.array(masses)
+    r = np.asarray(r, float)
+    v_obs = np.asarray(v_obs, float)
+    v_err = np.maximum(np.asarray(v_err, float), 1e-3)
+    v_disk = np.asarray(v_disk, float)
+    r_d = max(np.median(r), 0.1)
 
+    def resid(p):
+        A, alpha = 10.0 ** p[0], 10.0 ** p[1]
+        v_model = np.sqrt(v_disk ** 2 + profile.v2(r, A, alpha, r_d))
+        return (v_model - v_obs) / v_err
 
-def rmep_velocity(r, alpha, A):
-    """Круговая скорость для профиля RMEP (km/s)."""
-    r_arr = np.atleast_1d(np.asarray(r, dtype=float))
-    masses = rmep_mass(r_arr, alpha, A)
-    v = np.sqrt(G * masses / np.maximum(r_arr, 1e-10))
-    if np.isscalar(r):
-        return float(v)
-    return v
-
-
-# ============================================================
-# Подгонка моделей
-# ============================================================
-
-def fit_nfw(r, v_obs, v_err):
-    """Подгонка NFW к наблюдаемой кривой вращения.
-    
-    Возвращает: (V200, rs, chi2)
-    """
-    def model(r, V200, rs):
-        return nfw_velocity(r, V200, rs)
-    
-    # Начальные приближения
-    vmax_obs = np.max(v_obs)
-    p0 = [vmax_obs, np.median(r)]
-    bounds = ([10, 0.01], [2000, 500])
-    
+    p0 = profile.start(np.median(v_obs))
     try:
-        popt, _ = curve_fit(model, r, v_obs, p0=p0, sigma=v_err, 
-                           bounds=bounds, maxfev=10000)
-        v_model = nfw_velocity(r, *popt)
-        chi2 = np.sum(((v_obs - v_model) / v_err)**2)
-        return popt[0], popt[1], chi2
+        sol = least_squares(resid, p0, method="trf",
+                            bounds=([-2, -3], [4, 3]))
+        chi2 = float(np.sum(sol.fun ** 2))
+        A, alpha = 10.0 ** sol.x[0], 10.0 ** sol.x[1]
     except Exception:
-        return np.nan, np.nan, np.inf
+        chi2, A, alpha = np.inf, 0.0, 0.0
+
+    return {"chi2": chi2, "params": {"A": A, "alpha": alpha}}
 
 
-def fit_rmep(r, v_obs, v_err):
-    """Подгонка RMEP к наблюдаемой кривой вращения.
-    
-    Возвращает: (alpha, A, chi2)
-    """
-    def model(r, alpha, A):
-        return rmep_velocity(r, alpha, A)
-    
-    # Начальные приближения
-    vmax_obs = np.max(v_obs)
-    p0 = [np.median(r), vmax_obs**2 * np.median(r) / (4 * np.pi * G)]
-    bounds = ([0.01, 1e3], [100, 1e10])
-    
-    try:
-        popt, _ = curve_fit(model, r, v_obs, p0=p0, sigma=v_err,
-                           bounds=bounds, maxfev=10000)
-        v_model = rmep_velocity(r, *popt)
-        chi2 = np.sum(((v_obs - v_model) / v_err)**2)
-        return popt[0], popt[1], chi2
-    except Exception:
-        return np.nan, np.nan, np.inf
+# ======================================================================
+#  КОСМОЛОГИЯ
+# ======================================================================
+def hubble_rmep(z, H0=70.0, Om=0.315, lam_reg=0.01):
+    """H(z) в RMEP. Регуляторный член модифицирует тёмную энергию:
+    rho_de(z) = 1 + lam_reg * z/(1+z) (нормировка на rho_de(0))."""
+    z = np.atleast_1d(np.asarray(z, float))
+    rho_de = 1.0 + lam_reg * z / (1.0 + z)
+    E2 = Om * (1.0 + z) ** 3 + (1.0 - Om) * rho_de
+    return H0 * np.sqrt(E2)
 
 
-if __name__ == '__main__':
-    # Быстрый тест
-    r = np.linspace(0.5, 30, 50)
-    v = nfw_velocity(r, 200, 10)
-    print(f"NFW test: v(1 kpc) = {v[0]:.1f}, v(30 kpc) = {v[-1]:.1f}")
-    
-    v2 = rmep_velocity(r, 3.0, 2e5)
-    print(f"RMEP test: v(1 kpc) = {v2[0]:.1f}, v(30 kpc) = {v2[-1]:.1f}")
+def hubble_lcdm(z, H0=67.4, Om=0.315):
+    """H(z) в LambdaCDM."""
+    z = np.atleast_1d(np.asarray(z, float))
+    return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
+
+
+def w_eff_rmep(z, lam_reg=0.01):
+    """Эффективное уравнение состояния RMEP (аналитически из rho_de)."""
+    z = np.atleast_1d(np.asarray(z, float))
+    denom = 1.0 + lam_reg * z / (1.0 + z)
+    # (1 + w) = d ln rho_de / d ln(1+z)
+    one_plus_w = lam_reg / (1.0 + z) ** 2 / denom
+    return -1.0 + one_plus_w
