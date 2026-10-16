@@ -5,7 +5,7 @@ cosmology_test.py — космологические тесты RMEP проти�
 Тесты:
   1. H(z)  — темп расширения (31 точка из наблюдений)
   2. SNe Ia — модуль расстояния (синтетический срез, шум 0.15 mag)
-  3. BAO   — сравнение RMEP с LambdaCDM (демо-набор точек)
+  3. BAO   — D_M и H(z) по консенсусу BOSS DR12 (Alam et al. 2017)
   4. w(z)  — эффективное уравнение состояния RMEP
   5. CMB   — distance priors (R, l_A, r_s) на рекомбинации
 
@@ -50,11 +50,13 @@ H_Z_OBS = [
     (1.75, 202.0, 40.0),
 ]
 
-# BAO-точки: z, значение, погрешность (демо-набор, источник не подтверждён)
+# BAO-точки BOSS DR12 (консенсус, Alam et al. 2017, MNRAS 470, 2617):
+# z, D_M*(rd_fid/rd) [Мпк], погрешность, H*(rd/rd_fid) [км/с/Мпк], погрешность
+RD_FID = 147.78      # звуковой горизонт фидуциальной космологии BOSS, Мпк
 BAO_POINTS = [
-    (0.38, 0.0302, 0.0008), (0.51, 0.0344, 0.0009),
-    (0.70, 0.0477, 0.0017), (1.48, 0.2620, 0.0013),
-    (2.33, 0.5260, 0.0030), (2.99, 0.7430, 0.0040),
+    (0.38, 1512.0, 25.0, 81.2, 2.4),
+    (0.51, 1975.0, 30.0, 90.9, 2.3),
+    (0.61, 2307.0, 37.0, 99.0, 2.5),
 ]
 
 # ----------------------------------------------------------------------
@@ -75,7 +77,7 @@ def dc_model(z, model, n=2000):
     out = np.empty_like(z)
     for i, zi in enumerate(z):
         zz = np.linspace(0.0, max(zi, 1e-8), n)
-        out[i] = (C_KM / h0) * np.trapz(1.0 / E_of_z(zz, model), zz)
+        out[i] = (C_KM / h0) * np.trapezoid(1.0 / E_of_z(zz, model), zz)
     return out
 
 
@@ -144,17 +146,27 @@ def test_SN():
 
 def test_BAO():
     z = np.array([p[0] for p in BAO_POINTS])
-    obs = np.array([p[1] for p in BAO_POINTS])
-    err = np.array([p[2] for p in BAO_POINTS])
+    dm_obs = np.array([p[1] for p in BAO_POINTS])
+    dm_err = np.array([p[2] for p in BAO_POINTS])
+    h_obs = np.array([p[3] for p in BAO_POINTS])
+    h_err = np.array([p[4] for p in BAO_POINTS])
 
-    dv_r = dv_model(z, "rmep") / R_D
-    dv_l = dv_model(z, "lcdm") / R_D
+    # Наблюдаемые величины содержат звуковой горизонт:
+    # D_M_obs = D_M_true * (rd_fid/rd),  H_obs = H_true * (rd/rd_fid)
+    scale = RD_FID / R_D
 
-    dev = np.abs(dv_r / dv_l - 1.0) * 100
-    print(f"[BAO]       max |RMEP/LCDM - 1| = {dev.max():5.2f}%"
-          f"  (в осн. разница H0)")
-    print("            chi2 отключён: нормировка BAO-набора демо-режима не подтверждена")
-    return dev.max()
+    def chi2(model):
+        dm_mod = np.array([dc_model(zi, model) for zi in z]) * scale
+        h0 = H0_RMEP if model == "rmep" else H0_LCDM
+        h_mod = E_of_z(z, model) * h0 / scale
+        d = np.sum(((dm_obs - dm_mod) / dm_err) ** 2)
+        h = np.sum(((h_obs - h_mod) / h_err) ** 2)
+        return (d + h) / (2 * len(z))
+
+    c_r, c_l = chi2("rmep"), chi2("lcdm")
+    print(f"[BAO]       chi2/dof  RMEP = {c_r:5.2f}   LCDM = {c_l:5.2f}"
+          f"  (D_M и H, BOSS DR12; ковариации не учтены)")
+    return c_r, c_l
 
 
 def test_wz():
