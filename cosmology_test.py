@@ -183,7 +183,7 @@ def cmb_priors(H_of_z):
 
 def cmb_distance_priors_test(lam_reg=0.01):
     R1, lA1, rs1 = cmb_priors(H_cmb_lcdm)
-    R2, lA2, rs2 = cmb_priors(H_cmb_rmep, lam_reg)
+    R2, lA2, rs2 = cmb_priors(lambda z: H_cmb_rmep(z, lam_reg))
     
     print("CMB distance priors (same base params):")
     print(f"  LCDM : R={R1:.5f}  l_A={lA1:.2f}  r_s={rs1:.2f} Мпк")
