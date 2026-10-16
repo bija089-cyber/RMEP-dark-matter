@@ -154,5 +154,48 @@ if __name__ == "__main__":
     test_SN()
     test_BAO()
     test_wz()
-    print("=" * 62)
+    print("=" * 62) 
+
+
+  import numpy as np
+from scipy.integrate import quad
+
+# Константы CMB
+H0_CMB = 67.4  # км/с/Мпк
+Om_CMB = 0.315  # материя
+omega_b_C = 0.02237  # плотность барионов h^2
+omega_g_C = 2.469e-5  # плотность фотонов h^2
+Omega_r_C = 9.16e-5  # излучение + нейтрино (доля rho_crit)
+z_star_C = 1089.9  # рекомбинация
+c_km_C = 299792.458  # км/с
+
+def H_cmb_lcdm(z):
+    return H0_CMB * np.sqrt(Om_CMB * (1 + z) ** 3 + Omega_r_C * (1 + z) ** 4 + (1 - Om_CMB - Omega_r_C))
+
+def H_cmb_rmep(z, lam_reg=0.01):
+    de = (1 - Om_CMB - Omega_r_C) * (1 + lam_reg * z / (1 + z))
+    return H0_CMB * np.sqrt(Om_CMB * (1 + z) ** 3 + Omega_r_C * (1 + z) ** 4 + de)
+
+def cmb_priors(H_of_z):
+    dc, _ = quad(lambda z: c_km_C / H_of_z(z), 0.0, z_star_C)
+    rs, _ = quad(lambda z: (c_km_C / H_of_z(z)) / np.sqrt(3.0 * (1.0 + 0.75 * (omega_b_C / omega_g_C) / (1.0 + z))), z_star_C, 5e6)
+    return np.sqrt(Om_CMB) * H0_CMB * dc / c_km_C, np.pi * dc / rs, rs
+
+def cmb_distance_priors_test(lam_reg=0.01):
+    R1, lA1, rs1 = cmb_priors(H_cmb_lcdm)
+    R2, lA2, rs2 = cmb_priors(H_cmb_rmep, lam_reg)
+    
+    print("CMB distance priors (same base params):")
+    print(f"  LCDM : R={R1:.5f}  l_A={lA1:.2f}  r_s={rs1:.2f} Мпк")
+    print(f"  RMEP : R={R2:.5f}  l_A={lA2:.2f}  r_s={rs2:.2f} Мпк")
+    
+    dR, dl, dr = (abs(R2 / R1 - 1), abs(lA2 / lA1 - 1), abs(rs2 / rs1 - 1))
+    print(f"  max deviation: R {dR*100:.4f}%,  l_A {dl*100:.4f}%,  r_s {dr*100:.6f}%")
+    assert max(dR, dl) < 1e-3, "RMEP distorts CMB priors beyond 0.1%!"
+    print("  OK: RMEP does not distort CMB (deviation < 0.1%)")
+    
+    return {"R_dev": dR, "lA_dev": dl, "rs_dev": dr}
+
+if __name__ == "__main__":
+    cmb_distance_priors_test()
     print("Вывод: RMEP согласуется с данными в пределах заявленных погрешностей.")
