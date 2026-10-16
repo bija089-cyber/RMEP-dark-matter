@@ -151,7 +151,7 @@ def test_BAO():
     dv_l = dv_model(z, "lcdm") / R_D
 
     dev = np.abs(dv_r / dv_l - 1.0) * 100
-     print(f"[BAO]       max |RMEP/LCDM - 1| = {dev.max():5.2f}%"
+    print(f"[BAO]       max |RMEP/LCDM - 1| = {dev.max():5.2f}%"
           f"  (в осн. разница H0)")
     print("            chi2 отключён: нормировка BAO-набора демо-режима не подтверждена")
     return dev.max()
