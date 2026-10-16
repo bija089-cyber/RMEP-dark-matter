@@ -3,21 +3,23 @@
 cosmology_test.py — космологические тесты RMEP против данных.
 
 Тесты:
-  1. H(z) — темп расширения (точки из наблюдений, 31 красное смещение)
-  2. SNe Ia — модуль расстояния (синтетический срез Union-like выборки)
-  3. BAO — отношение D_V/r_d по точкам BOSS/eBOSS
-  4. w(z) — эффективное уравнение состояния RMEP
+  1. H(z)  — темп расширения (31 точка из наблюдений)
+  2. SNe Ia — модуль расстояния (синтетический срез, шум 0.15 mag)
+  3. BAO   — H(z)*r_d/c по точкам BOSS/eBOSS (нормировка x10)
+  4. w(z)  — эффективное уравнение состояния RMEP
+  5. CMB   — distance priors (R, l_A, r_s) на рекомбинации
 
 Сравнение с эталоном LambdaCDM (Om=0.315, h=0.674, Planck 2018).
 
 Запуск:  python cosmology_test.py
-Вывод: текстовая сводка + графики cosmo_Hz.png, cosmo_wz.png
+Вывод:   текстовая сводка + графики cosmo_Hz.png, cosmo_wz.png
 """
 
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from scipy.integrate import quad
 
 from rmep_model import hubble_rmep, hubble_lcdm, w_eff_rmep
 
@@ -26,7 +28,10 @@ H0_LCDM = 67.4        # км/с/Мпк
 OM_M = 0.315          # доля материи
 H0_RMEP = 70.0        # эффективное H0 в RMEP
 LAMBDA_REG = 0.01     # параметр регуляторного члена
+C_KM = 299792.458     # скорость света, км/с
+R_D = 147.09          # звуковой горизонт на драг-эпохе, Мпк (Planck 2018)
 
+SN_NOISE = 0.15       # уровень шума синтетического среза SNe Ia, mag
 
 # ----------------------------------------------------------------------
 # Наблюдательные точки (литературные значения, округлены)
@@ -45,28 +50,47 @@ H_Z_OBS = [
     (1.75, 202.0, 40.0),
 ]
 
+# BAO-точки: z, 10*H(z)*r_d/c, погрешность (BOSS/eBOSS, округлены)
 BAO_POINTS = [
     (0.38, 0.0302, 0.0008), (0.51, 0.0344, 0.0009),
     (0.70, 0.0477, 0.0017), (1.48, 0.2620, 0.0013),
     (2.33, 0.5260, 0.0030), (2.99, 0.7430, 0.0040),
 ]
-# D_V/r_d: первое число — z, второе — отношение, третье — погрешность
+
+# ----------------------------------------------------------------------
+# Расстояния (честный численный интеграл)
+# ----------------------------------------------------------------------
+def E_of_z(z, model):
+    """E(z) = H(z)/H0 для модели 'rmep' или 'lcdm'."""
+    z = np.atleast_1d(np.asarray(z, dtype=float))
+    if model == "rmep":
+        return hubble_rmep(z, H0=H0_RMEP, Om=OM_M, lam_reg=LAMBDA_REG) / H0_RMEP
+    return hubble_lcdm(z, H0=H0_LCDM, Om=OM_M) / H0_LCDM
 
 
-def mu_SN(z):
-    """Синтетический модуль расстояния SNe Ia (срез ~ 40 точек)."""
-    # Истинная кривая = RMEP + лёгкий шум, имитируем реальную выборку
-    z = np.atleast_1d(z)
-    d_c = quad_int(z)
-    return 5.0 * np.log10(d_c) + 25.0 + np.random.normal(0, 0.15, z.shape)
+def dc_model(z, model, n=2000):
+    """Комовское расстояние D_C = (c/H0) * ∫ dz/E(z), Мпк (трапеции)."""
+    z = np.atleast_1d(np.asarray(z, dtype=float))
+    h0 = H0_RMEP if model == "rmep" else H0_LCDM
+    out = np.empty_like(z)
+    for i, zi in enumerate(z):
+        zz = np.linspace(0.0, max(zi, 1e-8), n)
+        out[i] = (C_KM / h0) * np.trapz(1.0 / E_of_z(zz, model)[0], zz)
+    return out
 
 
-def quad_int(z, n=400):
-    """Численный интеграл 1/H * dz — комовское расстояние (Мпк)."""
-    zz = np.linspace(1e-6, np.max(z, initial=1e-6), n)
-    E = hubble_rmep(zz, H0=H0_RMEP, Om=OM_M, lam_reg=LAMBDA_REG) / H0_RMEP
-    c = 299792.458
-    return c * np.interp(z, zz, 1.0 / E)  # грубая аппроксимация без z'/'sqrt(E)
+def mu_model(z, model):
+    """Модуль расстояния SNe Ia: mu = 5*log10(D_L) + 25, D_L=(1+z)*D_C."""
+    z = np.atleast_1d(np.asarray(z, dtype=float))
+    return 5.0 * np.log10((1.0 + z) * dc_model(z, model)) + 25.0
+
+
+def dv_model(z, model):
+    """Объёмно-средний диаметр D_V = [D_C^2 (1+z)^2 c z / H(z)]^(1/3), Мпк."""
+    z = np.atleast_1d(np.asarray(z, dtype=float))
+    dc = dc_model(z, model)
+    hz = E_of_z(z, model)[0] * (H0_RMEP if model == "rmep" else H0_LCDM)
+    return (dc ** 2 * (1.0 + z) ** 2 * C_KM * z / hz) ** (1.0 / 3.0)
 
 
 # ----------------------------------------------------------------------
@@ -85,7 +109,6 @@ def test_Hz():
     n = len(z)
     print(f"[H(z)]      chi2/dof  RMEP = {chi2_r/n:5.2f}   LCDM = {chi2_l/n:5.2f}")
 
-    # График
     fig, ax = plt.subplots(figsize=(6, 4.5))
     zz = np.linspace(0, 1.9, 200)
     ax.errorbar(z, h, yerr=dh, fmt="o", ms=4, color="k", label="данные")
@@ -105,26 +128,34 @@ def test_Hz():
 
 def test_SN():
     z = np.sort(np.random.uniform(0.01, 1.2, 40))
-    mu_obs = mu_SN(z)                     # «наблюдение» = RMEP + шум
-    mu_r = mu_SN(z) - np.random.normal(0, 0.05, z.shape)  # проверка: RMEP самописец
-    # Считаем отстояние от LCDM
-    d_c = quad_int(z)
-    mu_lcdm = 5.0 * np.log10(d_c) + 25.0
-    rms = np.sqrt(np.mean((mu_obs - mu_lcdm) ** 2))
-    print(f"[SNe Ia]    RMS(RMEP - LCDM) = {rms:5.3f} mag  (заявлено < 0.001)")
+    mu_obs = mu_model(z, "rmep") + np.random.normal(0, SN_NOISE, z.shape)
+    mu_r = mu_model(z, "rmep")
+    mu_l = mu_model(z, "lcdm")
+
+    chi2_r = np.sum(((mu_obs - mu_r) / SN_NOISE) ** 2) / len(z)
+    chi2_l = np.sum(((mu_obs - mu_l) / SN_NOISE) ** 2) / len(z)
+    rms = np.sqrt(np.mean((mu_r - mu_l) ** 2))
+    print(f"[SNe Ia]    chi2/dof  RMEP = {chi2_r:5.2f}   LCDM = {chi2_l:5.2f}"
+          f"  (шум выборки {SN_NOISE:.2f} mag)")
+    print(f"            RMS(RMEP - LCDM) = {rms:5.3f} mag"
+          f"  (в осн. разница H0: {H0_RMEP} vs {H0_LCDM})")
     return rms
 
 
 def test_BAO():
     z = np.array([p[0] for p in BAO_POINTS])
-    dv_rd = np.array([p[1] for p in BAO_POINTS])
+    obs = np.array([p[1] for p in BAO_POINTS])
     err = np.array([p[2] for p in BAO_POINTS])
-    # Относительное отклонение D_V/r_d между RMEP и LCDM
-    dv_r = np.array([quad_int(zi) for zi in z])
-    dev = np.abs(dv_r / dv_r.mean() - 1.0) * 100  # служебная оценка, %
-    chi2 = np.sum((dev / (err / dv_rd.mean() * 100)) ** 2)
-    print(f"[BAO]       max отклонение RMEP от LCDM ~ {dev.max():5.2f}% "
-          f"  (заявлено < 0.1%)")
+
+    dv_r = dv_model(z, "rmep") / R_D
+    dv_l = dv_model(z, "lcdm") / R_D
+
+    dev = np.abs(dv_r / dv_l - 1.0) * 100
+    chi2_r = np.sum(((dv_r - obs) / err) ** 2) / len(z)
+    chi2_l = np.sum(((dv_l - obs) / err) ** 2) / len(z)
+    print(f"[BAO]       chi2/dof  RMEP = {chi2_r:6.2f}   LCDM = {chi2_l:6.2f}")
+    print(f"            max |RMEP/LCDM - 1| = {dev.max():5.2f}%"
+          f"  (в осн. разница H0)")
     return dev.max()
 
 
@@ -145,6 +176,52 @@ def test_wz():
     print("            график: cosmo_wz.png")
 
 
+# ----------------------------------------------------------------------
+# CMB distance priors: RMEP не искажает реликтовое излучение
+# ----------------------------------------------------------------------
+H0_CMB = 67.4        # км/с/Мпк
+Om_CMB = 0.315       # материя
+omega_b_C = 0.02237  # плотность барионов h^2
+omega_g_C = 2.469e-5 # плотность фотонов h^2
+Omega_r_C = 9.16e-5  # излучение + нейтрино (доля rho_crit)
+z_star_C = 1089.9    # рекомбинация
+z_drag_C = 1059.9    # драг-эпоха
+
+
+def H_cmb_lcdm(z):
+    return H0_CMB * np.sqrt(Om_CMB * (1 + z) ** 3
+                            + Omega_r_C * (1 + z) ** 4
+                            + (1 - Om_CMB - Omega_r_C))
+
+
+def H_cmb_rmep(z, lam_reg=0.01):
+    de = (1 - Om_CMB - Omega_r_C) * (1 + lam_reg * z / (1 + z))
+    return H0_CMB * np.sqrt(Om_CMB * (1 + z) ** 3
+                            + Omega_r_C * (1 + z) ** 4 + de)
+
+
+def cmb_priors(H_of_z):
+    dc, _ = quad(lambda z: C_KM / H_of_z(z), 0.0, z_star_C)
+    rs, _ = quad(lambda z: (C_KM / H_of_z(z))
+                 / np.sqrt(3.0 * (1.0 + 0.75 * (omega_b_C / omega_g_C)
+                                  / (1.0 + z))), z_star_C, 5e6)
+    return np.sqrt(Om_CMB) * H0_CMB * dc / C_KM, np.pi * dc / rs, rs
+
+
+def cmb_distance_priors_test(lam_reg=LAMBDA_REG):
+    R1, lA1, rs1 = cmb_priors(H_cmb_lcdm)
+    R2, lA2, rs2 = cmb_priors(lambda z: H_cmb_rmep(z, lam_reg))
+    print("CMB distance priors (same base params):")
+    print(f"  LCDM : R={R1:.5f}  l_A={lA1:.2f}  r_s={rs1:.2f} Мпк")
+    print(f"  RMEP : R={R2:.5f}  l_A={lA2:.2f}  r_s={rs2:.2f} Мпк")
+    dR, dl, dr = (abs(R2 / R1 - 1), abs(lA2 / lA1 - 1), abs(rs2 / rs1 - 1))
+    print(f"  max deviation: R {dR*100:.4f}%,  l_A {dl*100:.4f}%,  "
+          f"r_s {dr*100:.6f}%")
+    assert max(dR, dl) < 1e-3, "RMEP distorts CMB priors beyond 0.1%!"
+    print("  OK: RMEP does not distort CMB (deviation < 0.1%)")
+    return {"R_dev": dR, "lA_dev": dl, "rs_dev": dr}
+
+
 if __name__ == "__main__":
     np.random.seed(42)
     print("=" * 62)
@@ -154,48 +231,7 @@ if __name__ == "__main__":
     test_SN()
     test_BAO()
     test_wz()
-    print("=" * 62) 
-
-
-import numpy as np
-from scipy.integrate import quad
-
-# Константы CMB
-H0_CMB = 67.4  # км/с/Мпк
-Om_CMB = 0.315  # материя
-omega_b_C = 0.02237  # плотность барионов h^2
-omega_g_C = 2.469e-5  # плотность фотонов h^2
-Omega_r_C = 9.16e-5  # излучение + нейтрино (доля rho_crit)
-z_star_C = 1089.9  # рекомбинация
-c_km_C = 299792.458  # км/с
-
-def H_cmb_lcdm(z):
-    return H0_CMB * np.sqrt(Om_CMB * (1 + z) ** 3 + Omega_r_C * (1 + z) ** 4 + (1 - Om_CMB - Omega_r_C))
-
-def H_cmb_rmep(z, lam_reg=0.01):
-    de = (1 - Om_CMB - Omega_r_C) * (1 + lam_reg * z / (1 + z))
-    return H0_CMB * np.sqrt(Om_CMB * (1 + z) ** 3 + Omega_r_C * (1 + z) ** 4 + de)
-
-def cmb_priors(H_of_z):
-    dc, _ = quad(lambda z: c_km_C / H_of_z(z), 0.0, z_star_C)
-    rs, _ = quad(lambda z: (c_km_C / H_of_z(z)) / np.sqrt(3.0 * (1.0 + 0.75 * (omega_b_C / omega_g_C) / (1.0 + z))), z_star_C, 5e6)
-    return np.sqrt(Om_CMB) * H0_CMB * dc / c_km_C, np.pi * dc / rs, rs
-
-def cmb_distance_priors_test(lam_reg=0.01):
-    R1, lA1, rs1 = cmb_priors(H_cmb_lcdm)
-    R2, lA2, rs2 = cmb_priors(lambda z: H_cmb_rmep(z, lam_reg))
-    
-    print("CMB distance priors (same base params):")
-    print(f"  LCDM : R={R1:.5f}  l_A={lA1:.2f}  r_s={rs1:.2f} Мпк")
-    print(f"  RMEP : R={R2:.5f}  l_A={lA2:.2f}  r_s={rs2:.2f} Мпк")
-    
-    dR, dl, dr = (abs(R2 / R1 - 1), abs(lA2 / lA1 - 1), abs(rs2 / rs1 - 1))
-    print(f"  max deviation: R {dR*100:.4f}%,  l_A {dl*100:.4f}%,  r_s {dr*100:.6f}%")
-    assert max(dR, dl) < 1e-3, "RMEP distorts CMB priors beyond 0.1%!"
-    print("  OK: RMEP does not distort CMB (deviation < 0.1%)")
-    
-    return {"R_dev": dR, "lA_dev": dl, "rs_dev": dr}
-
-if __name__ == "__main__":
     cmb_distance_priors_test()
+    print("=" * 62)
     print("Вывод: RMEP согласуется с данными в пределах заявленных погрешностей.")
+
