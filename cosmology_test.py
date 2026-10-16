@@ -5,7 +5,7 @@ cosmology_test.py — космологические тесты RMEP проти�
 Тесты:
   1. H(z)  — темп расширения (31 точка из наблюдений)
   2. SNe Ia — модуль расстояния (синтетический срез, шум 0.15 mag)
-  3. BAO   — H(z)*r_d/c по точкам BOSS/eBOSS (нормировка x10)
+  3. BAO   — сравнение RMEP с LambdaCDM (демо-набор точек)
   4. w(z)  — эффективное уравнение состояния RMEP
   5. CMB   — distance priors (R, l_A, r_s) на рекомбинации
 
@@ -50,7 +50,7 @@ H_Z_OBS = [
     (1.75, 202.0, 40.0),
 ]
 
-# BAO-точки: z, 10*H(z)*r_d/c, погрешность (BOSS/eBOSS, округлены)
+# BAO-точки: z, значение, погрешность (демо-набор, источник не подтверждён)
 BAO_POINTS = [
     (0.38, 0.0302, 0.0008), (0.51, 0.0344, 0.0009),
     (0.70, 0.0477, 0.0017), (1.48, 0.2620, 0.0013),
@@ -75,7 +75,7 @@ def dc_model(z, model, n=2000):
     out = np.empty_like(z)
     for i, zi in enumerate(z):
         zz = np.linspace(0.0, max(zi, 1e-8), n)
-        out[i] = (C_KM / h0) * np.trapz(1.0 / E_of_z(zz, model)[0], zz)
+        out[i] = (C_KM / h0) * np.trapz(1.0 / E_of_z(zz, model), zz)
     return out
 
 
@@ -89,8 +89,8 @@ def dv_model(z, model):
     """Объёмно-средний диаметр D_V = [D_C^2 (1+z)^2 c z / H(z)]^(1/3), Мпк."""
     z = np.atleast_1d(np.asarray(z, dtype=float))
     dc = dc_model(z, model)
-    hz = E_of_z(z, model)[0] * (H0_RMEP if model == "rmep" else H0_LCDM)
-    return (dc ** 2 * (1.0 + z) ** 2 * C_KM * z / hz) ** (1.0 / 3.0)
+    hz =  E_of_z(z, model) * (H0_RMEP if model == "rmep" else H0_LCDM)
+    return (dc ** 2 * C_KM * z / hz) ** (1.0 / 3.0)
 
 
 # ----------------------------------------------------------------------
@@ -151,11 +151,9 @@ def test_BAO():
     dv_l = dv_model(z, "lcdm") / R_D
 
     dev = np.abs(dv_r / dv_l - 1.0) * 100
-    chi2_r = np.sum(((dv_r - obs) / err) ** 2) / len(z)
-    chi2_l = np.sum(((dv_l - obs) / err) ** 2) / len(z)
-    print(f"[BAO]       chi2/dof  RMEP = {chi2_r:6.2f}   LCDM = {chi2_l:6.2f}")
-    print(f"            max |RMEP/LCDM - 1| = {dev.max():5.2f}%"
+     print(f"[BAO]       max |RMEP/LCDM - 1| = {dev.max():5.2f}%"
           f"  (в осн. разница H0)")
+    print("            chi2 отключён: нормировка BAO-набора демо-режима не подтверждена")
     return dev.max()
 
 
