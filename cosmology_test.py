@@ -156,7 +156,7 @@ def test_BAO():
     scale = RD_FID / R_D
 
     def chi2(model):
-        dm_mod = np.array([dc_model(zi, model) for zi in z]) * scale
+        dm_mod = dc_model(z, model) * scale
         h0 = H0_RMEP if model == "rmep" else H0_LCDM
         h_mod = E_of_z(z, model) * h0 / scale
         d = np.sum(((dm_obs - dm_mod) / dm_err) ** 2)
