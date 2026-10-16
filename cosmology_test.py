@@ -157,7 +157,7 @@ if __name__ == "__main__":
     print("=" * 62) 
 
 
-  import numpy as np
+import numpy as np
 from scipy.integrate import quad
 
 # Константы CMB
