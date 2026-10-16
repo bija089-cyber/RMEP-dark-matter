@@ -17,7 +17,7 @@ dark energy in cosmology. The code is prepared for peer review.
 | `rmep_model.py` | Core: RMEP and NFW profiles, rotation-curve fitting, H(z) and w(z). Ядро: профили RMEP и NFW, подгонка кривых вращения, H(z) и w(z) |
 | `fit_galaxies.py` | Fitting pipeline for 177 galaxies; produces `results.csv`. Пайплайн подгонки по 177 галактикам; создаёт results.csv |
 | `plot_results.py` | Plots: A ~ alpha^k, chi2 distributions, RMEP/NFW. Графики: связь A ~ alpha^k, распределения chi2, сравнение RMEP/NFW |
-| `cosmology_test.py` | Tests: H(z), SNe Ia, BAO, w(z) vs LambdaCDM. Тесты: H(z), сверхновые, BAO, w(z) против LambdaCDM |
+| `cosmology_test.py` | Tests: H(z), SNe Ia, BAO, w(z) vs CMB distance priors (R, l_A, r_s) LambdaCDM. Тесты: H(z), сверхновые, BAO, w(z) против LambdaCDM |
 | `nbody_skeleton.py` | N-body skeleton, leapfrog, energy check. N-body скелет, leapfrog, проверка энергии |
 | `requirements.txt` | Dependencies. Зависимости (numpy, scipy, matplotlib, pandas) |
 
