@@ -18,6 +18,7 @@ dark energy in cosmology. The code is prepared for peer review.
 | `fit_galaxies.py` | Fitting pipeline for 177 galaxies; produces `results.csv`. Пайплайн подгонки по 177 галактикам; создаёт results.csv |
 | `plot_results.py` | Plots: A ~ alpha^k, chi2 distributions, RMEP/NFW. Графики: связь A ~ alpha^k, распределения chi2, сравнение RMEP/NFW |
 | `cosmology_test.py` | Tests: H(z), SNe Ia, BAO, w(z), CMB distance priors (R, l_A, r_s) vs LambdaCDM. Тесты: H(z), сверхновые, BAO, w(z) против LambdaCDM |
+| rmep_blackhole.py | Black-hole module (Section 12): metric correction δ_vac, density profile ρ(r) = A/[r(1+αr)²], mass integral, A–α correlation. Four built-in tests. / Модуль чёрных дыр (раздел 12): поправка метрики δ_vac, профиль плотности, интеграл массы, корреляция A–α. Четыре встроенных теста. |
 | `nbody_skeleton.py` | N-body skeleton, leapfrog, energy check. N-body скелет, leapfrog, проверка энергии |
 | `requirements.txt` | Dependencies. Зависимости (numpy, scipy, matplotlib, pandas) |
 
@@ -64,3 +65,9 @@ seed = 42) и проверяет только работоспособность
 
 Submitted for peer review. Contact: see the repository owner's profile.
 Код передан на рецензирование. Контакты: см. профиль владельца репозитория.
+
+## Black holes (Section 12) / Чёрные дыры (раздел 12)
+
+**EN.** The black-hole module implements Section 12 of the RMEP hypothesis. It computes the vacuum metric correction δ_vac(R) for stellar-mass, Sgr A*-scale and M87*-scale black holes (showing |δ_vac| ~ 10⁻²⁷–10⁻²⁰, i.e. external dynamics remain Schwarzschild — consistent with EHT and LIGO/Virgo observations), integrates the density profile ρ(r) = A/[r(1+αr)²] (integrable 1/r divergence, finite mass within any radius), verifies the NFW-like outer asymptotic slope (−3), and enforces the empirical A ∝ α^−2.26 correlation. Run: `python rmep_blackhole.py`.
+
+**RU.** Модуль реализует раздел 12 гипотезы РМЭП: вычисляет вакуумную поправку метрики δ_vac(R) для чёрных дыр звёздной массы, масс Sgr A* и M87* (|δ_vac| ~ 10⁻²⁷–10⁻²⁰ — внешняя динамика остаётся шварцшильдовской, согласуется с EHT и LIGO/Virgo); численно интегрирует профиль плотности ρ(r) = A/[r(1+αr)²] (интегрируемая расходимость 1/r, масса конечна в пределах любого радиуса); проверяет внешний наклон профиля (−3, NFW-подобная асимптотика); применяет эмпирическую корреляцию A ∝ α^−2,26. Запуск: `python rmep_blackhole.py`.
