@@ -1,73 +1,43 @@
-# RMEP-dark-matter
+# РМЭП — Регуляторная модель энергии пустоты
 
-**RMEP** (Regressive Model of Empty-space Energy) — an alternative model of the
-dark component: a regulatory field replaces both dark matter in galaxies and
-dark energy in cosmology. The code is prepared for peer review.
+**Регуляторная модель энергии пустоты и её связь с тёмной материей и тёмной энергией**
 
----
+Научная гипотеза и её эмпирическая проверка на каталоге SPARC (175 галактик).
 
-**RMEP** (Регуляторная модель энергии пустоты) — альтернативная модель тёмной
-компоненты: регуляторное поле заменяет и тёмную материю в галактиках,
-и тёмную энергию в космологии. Код подготовлен для рецензирования.
+Анонимная работа (для рецензирования). Версия 5.0 — каноническая версия, согласована с пообъектными прогонами. Актуализирована по состоянию на ноябрь 2026 г.
 
-## Contents / Содержание
+## О работе
 
-| File / Файл | Purpose / Назначение |
-|---|---|
-| `rmep_model.py` | Core: RMEP and NFW profiles, rotation-curve fitting, H(z) and w(z). Ядро: профили RMEP и NFW, подгонка кривых вращения, H(z) и w(z) |
-| `fit_galaxies.py` | Fitting pipeline for 177 galaxies; produces `results.csv`. Пайплайн подгонки по 177 галактикам; создаёт results.csv |
-| `plot_results.py` | Plots: A ~ alpha^k, chi2 distributions, RMEP/NFW. Графики: связь A ~ alpha^k, распределения chi2, сравнение RMEP/NFW |
-| `cosmology_test.py` | Tests: H(z), SNe Ia, BAO, w(z), CMB distance priors (R, l_A, r_s) vs LambdaCDM. Тесты: H(z), сверхновые, BAO, w(z) против LambdaCDM |
-| rmep_blackhole.py | Black-hole module (Section 12): metric correction δ_vac, density profile ρ(r) = A/[r(1+αr)²], mass integral, A–α correlation. Four built-in tests. / Модуль чёрных дыр (раздел 12): поправка метрики δ_vac, профиль плотности, интеграл массы, корреляция A–α. Четыре встроенных теста. |
-| `nbody_skeleton.py` | N-body skeleton, leapfrog, energy check. N-body скелет, leapfrog, проверка энергии |
-| `requirements.txt` | Dependencies. Зависимости (numpy, scipy, matplotlib, pandas) |
+Предлагается регуляторная модель энергии пустоты (РМЭП) — альтернатива гипотезе тёмной материи на едином механизме: локальные конфигурации вакуумного конденсата с пылевым гравитационным откликом, масштаб и амплитуда которых определяются барионным состоянием системы. Релятивистская формулировка сохраняет стандартную ОТО: конденсат входит в тензор энергии-импульса как обычная масса, метрика не модифицируется.
 
-## Installation and usage / Установка и запуск
+## Ключевые результаты
 
-    pip install -r requirements.txt
+- **Галактический тест (SPARC, 175 галактик, 3391 точка):** при равном числе свободных параметров профиль РМЭП описывает кривые вращения существенно лучше NFW — РМЭП выигрывает в 107 случаях против 31, ничьих 37; медианные χ²_red 23,2 против 36,3.
+- **Скейлинг:** эмпирический масштаб регуляции α ≈ 5 кпк·(V_max/100 км/с)^1,89 с бутстреп-интервалом показателя [1,34; 2,41].
+- **Core–cusp:** проблема решается без дополнительной физики — плоское ядро является свойством профиля.
+- **Кеплеровский участок:** конечная полная масса регуляции предсказывает кеплеровский участок кривой вращения у 72 из 175 объектов.
+- **Переходное ускорение:** медианное переходное ускорение 0,14·a₀ воспроизводит феномен a₀ MOND по порядку величины без постулирования константы.
+- **Космология:** модель наследует стандартный фон по построению (H(z), BAO, CMB) и переносит различающую силу в структурные тесты: эволюцию доли регуляции при z ~ 1–2,3, Сакса–Вульфа, исход DESI по w(z) с двумя различающими исходами.
 
-    # Demo mode (synthetic sample of 177 galaxies) / Демо-режим (синтетическая выборка из 177 галактик):
-    python fit_galaxies.py
-    python plot_results.py
-    python cosmology_test.py
-    python nbody_skeleton.py
+## Структура документа
 
-    # Real SPARC data (directory with *_rotmod.dat files) / Реальные данные SPARC (каталог с файлами *_rotmod.dat):
-    python fit_galaxies.py sparc/
+Полный текст гипотезы — в файле [`RMEP_ru.md`](RMEP_ru.md):
 
-The SPARC data catalog is available on the official SPARC project website
-(Lelli et al. 2016).
-Каталог данных SPARC доступен на официальном сайте проекта SPARC (Lelli et al. 2016).
+- **Раздел 0** — физическая картина модели
+- **Разделы 1–4** — концепция энергии пустоты, механизм регулятора, пульсационный цикл, поток энергии
+- **Раздел 5** — проверяемые предсказания
+- **Разделы 6–8** — совместимость с наблюдениями, эмпирическое подтверждение на SPARC, открытые вопросы, выводы
+- **Разделы 9–12** — релятивистская формулировка, сравнение с MOND, космологическая эволюция, чёрные дыры
+- **Раздел 13** — ограничения применимости и план развития модели
+- **Список литературы** — 49 источников
 
-## Results / Результаты
+## Статус и границы модели
 
-**Rotation curves (demo mode):** mean chi2 of RMEP ~61 versus ~94 for NFW.
-**Кривые вращения (демо-режим):** средний chi2 RMEP ~61 против ~94 у NFW.
+Количественно проверена галактическая часть; скопления и линзирование описаны качественно; предсказания ранних версий, не воспроизведённые в текущей формулировке, переведены в архив с записью причин. Сформулирована программа различающих проверок с заранее записанными критериями исхода.
 
-**Cosmology (lam_reg = 0.01):** deviations from LambdaCDM within 0.1% for BAO
-and 0.001 mag for SNe Ia; w(z) approaches -1 as z grows.
-**Космология (lam_reg = 0.01):** отклонения от LambdaCDM в пределах 0,1% по BAO
-и 0,001 mag по сверхновым; w(z) стремится к -1 с ростом z.
+## Файлы репозитория
 
-**N-body:** total-energy drift over 200 leapfrog steps below 0.1%.
-**N-body:** дрейф полной энергии за 200 шагов leapfrog менее 0,1%.
+- `RMEP_ru.md` — полный текст гипотезы (русская версия)
+- `README.md` — этот файл
 
-## Important note / Важное замечание
-
-The demo mode uses **synthetic** data (reproducible generation, seed = 42)
-and verifies the pipeline only. Physical conclusions require running the code
-on the real SPARC catalog.
-Демо-режим использует **синтетические** данные (воспроизводимая генерация,
-seed = 42) и проверяет только работоспособность конвейера. Физические выводы
-требуют запуска на реальном каталоге SPARC.
-
-## Status / Статус
-
-Submitted for peer review. Contact: see the repository owner's profile.
-Код передан на рецензирование. Контакты: см. профиль владельца репозитория.
-
-## Black holes (Section 12) / Чёрные дыры (раздел 12)
-
-**EN.** The black-hole module implements Section 12 of the RMEP hypothesis. It computes the vacuum metric correction δ_vac(R) for stellar-mass, Sgr A*-scale and M87*-scale black holes (showing |δ_vac| ~ 10⁻²⁷–10⁻²⁰, i.e. external dynamics remain Schwarzschild — consistent with EHT and LIGO/Virgo observations), integrates the density profile ρ(r) = A/[r(1+αr)²] (integrable 1/r divergence, finite mass within any radius), verifies the NFW-like outer asymptotic slope (−3), and enforces the empirical A ∝ α^−2.26 correlation. Run: `python rmep_blackhole.py`.
-
-**RU.** Модуль реализует раздел 12 гипотезы РМЭП: вычисляет вакуумную поправку метрики δ_vac(R) для чёрных дыр звёздной массы, масс Sgr A* и M87* (|δ_vac| ~ 10⁻²⁷–10⁻²⁰ — внешняя динамика остаётся шварцшильдовской, согласуется с EHT и LIGO/Virgo); численно интегрирует профиль плотности ρ(r) = A/[r(1+αr)²] (интегрируемая расходимость 1/r, масса конечна в пределах любого радиуса); проверяет внешний наклон профиля (−3, NFW-подобная асимптотика); применяет эмпирическую корреляцию A ∝ α^−2,26. Запуск: `python rmep_blackhole.py`.
+Английская версия документа готовится и будет добавлена отдельным файлом (`RMEP_en.md`).
