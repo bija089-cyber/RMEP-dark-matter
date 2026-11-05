@@ -124,5 +124,5 @@ def w_eff_rmep(z, lam_reg=0.01):
     z = np.atleast_1d(np.asarray(z, float))
     denom = 1.0 + lam_reg * z / (1.0 + z)
     # (1 + w) = d ln rho_de / d ln(1+z)
-    one_plus_w = lam_reg / (1.0 + z) ** 2 / denom
+    one_plus_w = lam_reg / (1.0 + z) / denom
     return -1.0 + one_plus_w
