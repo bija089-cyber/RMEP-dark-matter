@@ -66,7 +66,7 @@ def load_sparc(path):
         data = pd.read_csv(f, sep=r"\s+", comment="#",
                            names=["r", "v_obs", "v_err", "v_gas", "v_disk"])
         data = data.dropna()
-        if len(data) < 10:
+        if len(data) < 3:
             continue
         sample.append({
             "name": os.path.basename(f).replace("_rotmod.dat", ""),
