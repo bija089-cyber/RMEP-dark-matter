@@ -1,3 +1,5 @@
+**DOI:** [10.5281/zenodo.24443470](https://doi.org/10.5281/zenodo.24443470) (Zenodo, version 5.0) 
+
 Regulatory Model of Empty-Space Energy (RMEP) and Its Connection with Dark Matter and Dark Energy
 
 A scientific hypothesis and its empirical test on the SPARC catalog (175 galaxies)
