@@ -1,4 +1,4 @@
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24443470.svg)](https://doi.org/10.5281/zenodo.24443470)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.24443470-blue)](https://doi.org/10.5281/zenodo.24443470)
 
 # RMEP-dark-matter
 
