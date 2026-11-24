@@ -53,3 +53,12 @@ DOI: [10.5281/zenodo.24443470](https://doi.org/10.5281/zenodo.24443470) — Zeno
 ## Статус работы
 
 Гипотеза представлена как рабочая: количественно проверена галактическая часть; скопления и линзирование описаны качественно; часть связей — рабочие допущения, не подтверждённые независимой проверкой. Открытые вопросы и программа дальнейших проверок — в разделе 13 работы.
+
+## Feedback & citation
+
+This work is an open hypothesis under informal review. Comments, criticism
+and replication attempts are welcome — please open an
+[Issue](https://github.com/bija089/RMEP-dark-matter/issues).
+
+How to cite: Karpov, V. (2026). RMEP — Regulatory Model of Empty-Energy
+Vacuum, version 5.0. Zenodo. DOI: [10.5281/zenodo.24443470](https://doi.org/10.5281/zenodo.24443470)
